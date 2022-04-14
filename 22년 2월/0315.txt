@@ -1,0 +1,723 @@
+모델링, 
+백업
+입력된 데이터의 조회, 활용 -> select  
+
+mariadb  계정생성 + 패스워드 + 권한부여
+처음에는 root  패스워드가 없는 상태
+mysql  -u  root  -p
+그냥 엔터 -> 로그인 이후 즉시 진입가능
+
+grant  all  privileges  on  testdb.* to root@'localhost'  identified by  'test1111';
+grant  all  privileges  on  testdb.* to root@'%'  identified by  'test1111';
+             
+
+mysql 8.X -> 생성하면  전체  관리자  root 에  대하여  임시  패스워드를  발급한다.. 
+/var/log/mysqld.log 파일에  기록되어  있다.. (systemctl start mysqld)
+
+ 패스워드  변경  : 
+(데이터에  대한  변경,, 삭제  -> update, delete)
+
+테이블,, DB, .. 패스워드... 
+
+처음  mysql 을  설치하면  로컬접속용  root 가  있으므로  원격  접속용  root 는  계정을  별도 로  생성해야  한다.. 
+
+alter user 'root'@'localhost' identified by 'TEst!234';
+
+create user 'root'@'%' identified by 'TEst!2345';
+alter user 'root'@'%' identified by 'TEst!234';
+ 
+권한부여
+grant all privileges on *.* to root@'%';
+
+flush privileges;
+
+---------- 기본  테이블  만들기  -------------------
+mysql> CREATE TABLE usertbl (
+    -> userid CHAR(8) PRIMARY KEY,  <--
+    -> name CHAR(10), -- 디폴트는  NULL  <--
+    -> birthyear INT NOT NULL DEFAULT -1,
+    -> addr CHAR(3) NOT NULL DEFAULT '서울',
+    -> mobile1 CHAR(3), /* 010~019 */
+    -> mobile2 CHAR(8), -- "-" 제외하고  입력할  것
+    -> mdate DATE -- 2020-02-02, 2020-2-2 <-
+    -> );
+Query OK, 0 rows affected (0.37 sec)
+
+mysql>
+
+만약  userid 를  PK 로  선언하지  않았다면???
+ALTER TABLE usertbl
+     ADD PRIMARY KEY (userid);
+
+기본키  삭제
+ALTER TABLE 
+     DROP PRIMARY KEY;
+
+데이터입력
+mysql> INSERT INTO usertbl VALUES ('user1','홍길동',1999, '', '010', '11111111', '2022-03-15');
+Query OK, 1 row affected (0.06 sec)
+
+데이터가  이미  입력되어  있는  상태에서  추가적으로  열 을  추가해  본다.. 대신  기본값을  설정하고  추가하기
+
+mysql> ALTER  TABLE  usertbl
+    -> ADD  homepage  VARCHAR(40)
+    -> DEFAULT  'http://example.com' NOT  NULL;
+
+
+
+
+
+
+
+
+
+
+
+
+
+테이블을  삭제하고  싶다면?
+drop table usertbl;
+
+특정  열(컬럼)) 만  삭제하고  싶다면??? 
+alter table usertbl
+  drop column mobile1
+
+mysql> alter table usertbl
+    -> drop column homepage ;
+
+
+sns 열을  추가하되,, addr 다음에  위치하도록  설정
+
+mysql> alter  table  usertbl
+    -> add sns char(30) after  addr;
+
+| addr      | char(3)  | NO   |     | 서울    |       |
+| sns       | char(30) | YES  |     | NULL    |       |
+
+열의  이름을  변경(change)하고  싶다면????
+mysql> alter table usertbl
+    -> change column addr address CHAR(10) NOT NULL DEFAULT '미선택';
+
+| address   | char(10) | NO   |     | 미선택    |       |
+
+
+데이터변경하기
+mysql> select name,address from usertbl where userid = 'user2';
++-----------+---------+
+| name      | address |
++-----------+---------+
+| 김철수    | 서울    |
++-----------+---------+
+1 row in set (0.00 sec)
+
+mysql> update usertbl set address  = '용인시' where  userid  = 'user2';
+Query OK, 1 row affected (0.07 sec)
+Rows matched: 1  Changed: 1  Warnings: 0
+
+mysql> select name,address from usertbl where userid = 'user2';
++-----------+-----------+
+| name      | address   |
++-----------+-----------+
+| 김철수    | 용인시    |
++-----------+-----------+
+1 row in set (0.00 sec)
+
+mysql>
+
+데이터 삭제하기 (delete)
+mysql> delete  from  usertbl  where  userid  = 'user1';
+Query OK, 1 row affected (0.07 sec)
+
+mysql> select userid,name,address from usertbl  ;
++--------+-----------+-----------+
+| userid | name      | address   |
++--------+-----------+-----------+
+| user2  | 김철수    | 용인시    |
++--------+-----------+-----------+
+1 row in set (0.01 sec)
+
+
+
+view  는 select  를 활용한 가상 테이블!
+
+
+새로만들어진 v_usertable  을 dev1 계정이 select  만 할 수 있도록 설정하세요.
+dev1 계정으로 로그인 한 다음 데이터를 삭제하려고 하면 오류가 발생해야 합니다!
+
+참고))
+create user 'root'@'%' identified by 'TEst!2345';
+alter user 'root'@'%' identified by 'TEst!234';
+ 
+권한부여
+grant all privileges on *.* to root@'%';
+
+테스트  해  보려면.... (로컬  DB 사용중이라면)
+
+cd "C:\Program Files\MySQL\MySQL Workbench 8.0"
+이동후  해당  폴더에서  mysql -u dev1 -p [엔터]
+password : 
+
+
+윈도우에서  root : test1234
+리눅스에서  root : TEst!234
+
+아래  내용은  모두  윈도우에서  실습한  것임
+[root:test1234]
+mysql> create user 'dev1'@'localhost' identified  by  'TEst!!234';
+Query OK, 0 rows affected (0.13 sec)
+
+mysql> grant  select  on  testdb.v_usertbl  to  'dev1'@'localhost';
+Query OK, 0 rows affected (0.07 sec)
+
+mysql> flush  privileges;
+Query OK, 0 rows affected (0.06 sec)
+
+mysql>
+
+cmd 를  열고 아래  작업은  dev1 으로  실행
+C:\Program Files\MySQL\MySQL Workbench 8.0>mysql -u dev1 -p
+Enter password: *********
+mysql> show databases;
++--------------------+
+| Database           |
++--------------------+
+| information_schema |
+| testdb             |
++--------------------+
+2 rows in set (0.02 sec)
+mysql> show  tables;
++------------------+
+| Tables_in_testdb |
++------------------+
+| v_usertbl        |
++------------------+
+1 row in set (0.00 sec)
+mysql> select  * from  v_usertbl;
++--------+--------+---------+
+| userid | name   | address |
++--------+--------+---------+
+| user2  | 김철수 | 용인시  |
++--------+--------+---------+
+1 row in set (0.01 sec)
+
+mysql> delete from v_usertbl  where  userid  = 'user2';
+-> 퍼미션  문제로  정상  실행되지  않아야  함
+
+stored  procedure  (스토어드 프로시져)
+MySQL  에서 제공하는 프로그래밍 기능 -> 변수선언, 함수 작성 등의 여러 코드가 일괄적으로 처리되어야 하는 상황이 많다. 일반적인 sql  은 입력-> 출력 형태의 interfactive  한 동작이 기본이다. 
+
+스토어드 프로시져는 프로그래밍을 위하여 여러 코드를 한꺼번에 실행시킬 수 있는 기능을 제공한다. -> 내장함수가 아니라 사용자가 직접 만들어서 사용하는 사용자 함수를 만드는 것으로 생각하자
+
+일반적인 종료 -> ; 
+
+use testdb;
+drop procedure test; -- test  프로시져 없다면 삭제후 실행
+DELIMITER //
+CREATE procedure test()
+BEGIN
+	select userid from usertbl;
+    select name from usertbl;
+END //
+DELIMITER ; 
+CALL test() ;	-- test() 호출하기
+
+[결과]
+mysql> call test();
++--------+
+| userid |
++--------+
+| user2  |
++--------+
+1 row in set (0.00 sec)
+
++-----------+
+| name      |
++-----------+
+| 김철수    |
++-----------+
+1 row in set (0.01 sec)
+
+Query OK, 0 rows affected (0.01 sec)
+
+mysql>
+
+
+트리거 (방아쇠)
+특정 테이블의 특정 행(모든 행) 을 백그라운드에서 모니터링하고 해당 행에서 특별한 이벤트가 발생하면(delete, update, insert...) 지정된 동작이 실행되도록 하는 기능.
+-> aws  에서 사용하는 람다함수(cloud  function@gcp)가 이러한 트리거와 같은 역할을 수행한다. 
+
+
+ usertbl  에서 회원이 탈퇴하면 행이 삭제된다. 그런데 만약 삭제된 회원의 정보를 별도의 테이블에서 관리하고자 한다면?? 
+
+mysql> call test();
++--------+
+| userid |
++--------+
+| user2  |
++--------+
+1 row in set (0.00 sec)
+
++-----------+
+| name      |
++-----------+
+| 김철수    |
++-----------+
+1 row in set (0.01 sec)
+
+Query OK, 0 rows affected (0.01 sec)
+
+mysql>
+
+
+| userid    | char(8)  | NO   | PRI | NULL      |       |
+| name      | char(10) | YES  |     | NULL      |       |
+| birthyear | int      | NO   |     | -1        |       |
+| address   | char(10) | NO   |     | 미선택    |       |
+
+
+
+
+트리거 실습
+use testdb;
+create table deluser (
+	userid char(8),
+    name char(10),
+    year int,
+    addr char(10),
+    deldate date
+    );
+delimiter //
+CREATE TRIGGER trg_deluser
+	AFTER DELETE
+    ON usertbl
+	FOR EACH ROW
+BEGIN
+	INSERT INTO deluser
+		VALUES (OLD.userid, OLD.name, OLD.birthyear, OLD.address, CURDATE());
+END //
+DELIMITER ; 
+
+
+mysql> delete from usertbl where userid = 'user2';
+Query OK, 1 row affected (0.07 sec)
+
+mysql> select * from usertbl;
+Empty set (0.00 sec)
+
+mysql> select * from deluser;
++--------+-----------+------+-----------+------------+
+| userid | name      | year | addr      | deldate    |
++--------+-----------+------+-----------+------------+
+| user2  | 김철수    |   -1 | 용인시    | 2022-03-15 |
++--------+-----------+------+-----------+------------+
+1 row in set (0.00 sec)
+
+mysql>
+
+CREATE TABLE IF NOT EXISTS `sampledb`.`user` (
+  `userid` CHAR(10) NOT NULL,
+  `username` CHAR(10) NOT NULL,
+  `address` CHAR(20) NOT NULL,
+  `year` INT NULL,
+  PRIMARY KEY (`userid`))
+
+-- -----------------------------------------------------
+-- Table `sampledb`.`buy`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `sampledb`.`buy` (
+  `ordernumber` INT NOT NULL AUTO_INCREMENT,
+  `userid` CHAR(10) NOT NULL,
+  `prodname` CHAR(20) NOT NULL,
+  `acount` INT NOT NULL,
+  PRIMARY KEY (`ordernumber`),
+  INDEX `fk_buy_user_idx` (`userid` ASC) VISIBLE,
+  CONSTRAINT `fk_buy_user`
+    FOREIGN KEY (`userid`)
+    REFERENCES `sampledb`.`user` (`userid`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION)
+
+  주테이블(기준테이블)의 데이터 내용에 변경이 있을 경우 보조 테이블의 내용을 변경할 것인가?
+ ON DELETE CASCADE
+ ON UPDATE CASCASE
+ 보조 테이블을 변경한다!!
+
+ 별도로 지정하지 않으면 
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION  가 기본값이 되며 기준 테이블 내용변경하더라도 보조 테이블에 영향을 끼치지 않는다. 
+
+
+
+ Quiz. kvmdb
+ 다음을 만족하는 간단한 모델링을 통한 DB/테이블 생성을 진행하라
+
+ host 테이블 
+ hostname(PK), CPU, MEMORY, IP 
+
+ instance 테이블
+ id(auto_increment)[PK] , instance name, flavor (m1.small), instance ip 
+FK 사용할 열 지정하여
+
+ 모델링!!
+
+
+SQL 기본 
+- select 문 
+
+
+
+
+
+drop database if exists sqldb;
+create database sqldb;
+use sqldb;
+create table usertbl
+( userid char(8) not null primary key,
+name varchar(10) not null,
+birthyear int not null,
+addr char(2) not null,
+mobile1 char(3),
+mobile2 char(8),
+height smallint,
+mdate date );
+
+create table buytbl (
+num int auto_increment not null primary key,
+userid char(8) not null,
+prodname char(6) not null,
+groupname char(4),
+price int not null,
+amount smallint not null,
+foreign key (userid) references usertbl(userid)
+);
+
+
+use sqldb;
+insert into usertbl values ('lsg','이승기', 1987, '서울', '011', '1111111', 182, '2008-8-8');
+insert into usertbl values ('kbs','김범수', 1979, '경남', '011', '2222222', 173, '2012-4-4');
+insert into usertbl values ('kkh','김경호', 1971, '전남', '011', '3333333', 177, '2007-7-7');
+insert into usertbl values ('jyp','조용필', 1950, '경기', '011', '4444444', 166, '2009-4-4');
+insert into usertbl values ('ssk','성시경', 1979, '서울', null, null, 186, '2013-12-12');
+insert into usertbl values ('ljb','임재범', 1963, '서울', '011', '6666666', 182, '2009-9-9');
+insert into usertbl values ('yjs','윤종신', 1969, '경남', null, null, 170, '2005-5-5');
+insert into usertbl values ('ejw','은지원', 1972, '경북', '011', '8888888', 174, '2014-3-3');
+insert into usertbl values ('jkw','조관우', 1965, '경기', '011', '9999999', 172, '2010-10-10');
+insert into usertbl values ('bbk','바비킴', 1973, '서울', '011', '0000000', 176, '2013-5-5');
+
+insert into buytbl values (null, 'kbs', '운동화', null, 30, 2);
+insert into buytbl values (null, 'kbs', '노트북', '전자', 1000, 1);
+insert into buytbl values (null, 'jyp', '모니터', '전자', 200, 1);
+insert into buytbl values (null, 'bbk', '모니터', '전자', 200, 5);
+insert into buytbl values (null, 'kbs', '청바지', '의류', 50, 3);
+insert into buytbl values (null, 'bbk', '메모리', '전자', 80, 10);
+insert into buytbl values (null, 'ssk', '책', '서적', 15, 5);
+insert into buytbl values (null, 'ejw', '책', '서적', 15, 2);
+insert into buytbl values (null, 'ejw', '청바지', '의류', 50, 1);
+insert into buytbl values (null, 'bbk', '운동화', null, 30, 2);
+insert into buytbl values (null, 'ejw', '책', '서적', 15, 1);
+insert into buytbl values (null, 'bbk', '운동화', null, 30, 2);
+
+
+
+ 기본적인 where 절 
+
+ 1. 1970 년 이후 출생이고(1970 보다 숫자가 큰 사람 -> 나이가 어린사람) 
+      신장이 182 이상인 사람 ( 조건 > 182 )
+
+mysql> select name, height from usertbl where height > 182 ;
++-----------+--------+
+| name      | height |
++-----------+--------+
+| 성시경    |    186 |
++-----------+--------+
+1 row in set (0.00 sec)
+
+
+
+
+
+
+mysql> select name, height from usertbl where height between 170 and 180 ;
++-----------+--------+
+| name      | height |
++-----------+--------+
+| 바비킴    |    176 |
+| 은지원    |    174 |
+| 조관우    |    172 |
+| 김범수    |    173 |
+| 김경호    |    177 |
+| 윤종신    |    170 |
++-----------+--------+
+6 rows in set (0.00 sec)
+
+mysql>
+
+특정 지역
+
+mysql> select name, addr from usertbl where addr = '경남' or addr = '서울' or addr = '경북';
+= 
+mysql> select name, addr from usertbl where addr IN ('서울','경남','경북');
+
+사람의 이름 출력하기
+mysql> select name, height, addr from usertbl where name LIKE '김%';
++-----------+--------+--------+
+| name      | height | addr   |
++-----------+--------+--------+
+| 김범수    |    173 | 경남   |
+| 김경호    |    177 | 전남   |
++-----------+--------+--------+
+2 rows in set (0.00 sec)
+
+mysql>
+
+mysql> select name, height, addr from usertbl where name LIKE '_범수';
++-----------+--------+--------+
+| name      | height | addr   |
++-----------+--------+--------+
+| 김범수    |    173 | 경남   |
++-----------+--------+--------+
+1 row in set (0.00 sec)
+
+mysql>
+
+
+Quiz. 이승기 보다 키가 큰 사람??? 
+step1. 이승기의 키를 구한다(182)
+step2. 구해진 이승기의 키보다 큰 사람을 출력한다.    height > 182
+
+     키를 출력하 되 비교대상을 (이승기의 키를 구하라)
+
+
+mysql> select name, height from usertbl where height > (select height from usertbl where name = '이승기');
++-----------+--------+
+| name      | height |
++-----------+--------+
+| 성시경    |    186 |
++-----------+--------+
+1 row in set (0.00 sec)
+
+mysql>
+
+ Quiz. 이승기가 살고 있는 지역출신인 사람들은??? 
+mysql> select name, addr from usertbl where addr = (select addr from usertbl where name = '이승기');
++-----------+--------+
+| name      | addr   |
++-----------+--------+
+| 바비킴    | 서울   |
+| 임재범    | 서울   |
+| 이승기    | 서울   |
+| 성시경    | 서울   |
++-----------+--------+
+4 rows in set (0.00 sec)
+
+
+mysql> select name, height from usertbl where height >= ANY(select height from usertbl where addr = '경남');
+
+최종적으로 170 이상인 사람들 출력
+
+select name, height from usertbl where height >= ALL(select height from usertbl where addr = '경남');
+최종적으로 173 이상인 사람들 출력
+
+
+order by 를 이용한 정렬
+mysql> select birthyear, name from usertbl order by birthyear DESC , name DESC;
++-----------+-----------+
+| birthyear | name      |
++-----------+-----------+
+|      1987 | 이승기    |
+|      1979 | 성시경    |
+|      1979 | 김범수    |
+|      1973 | 바비킴    |
+|      1972 | 은지원    |
+|      1971 | 김경호    |
+|      1969 | 윤종신    |
+|      1965 | 조관우    |
+|      1963 | 임재범    |
+|      1950 | 조용필    |
++-----------+-----------+
+10 rows in set (0.00 sec)
+
+mysql>
+
+모든 가수들의 키 순서대로 정렬하라. 단, 키가 큰 사람 부터 출력하라!!
+mysql> select height, name from usertbl order by height DESC;
+
+키큰 사람 top 3 를 뽑아라!!! 
+
+mysql> select height, name from usertbl order by height DESC limit 3;
++--------+-----------+
+| height | name      |
++--------+-----------+
+|    186 | 성시경    |
+|    182 | 이승기    |
+|    182 | 임재범    |
++--------+-----------+
+3 rows in set (0.00 sec)
+
+mysql>
+  
+mysql> select height, name from usertbl order by height DESC
+    -> ;
++--------+-----------+
+| height | name      |
++--------+-----------+
+|    186 | 성시경    |
+|    182 | 임재범    |
+|    182 | 이승기    |
+|    177 | 김경호    |
+|    176 | 바비킴    |
+|    174 | 은지원    |
+|    173 | 김범수    |
+|    172 | 조관우    |
+|    170 | 윤종신    |
+|    166 | 조용필    |
++--------+-----------+
+10 rows in set (0.00 sec)
+
+mysql> select height, name from usertbl order by height DESC limit 3,3
+    -> ;
++--------+-----------+
+| height | name      |
++--------+-----------+
+|    177 | 김경호    |
+|    176 | 바비킴    |
+|    174 | 은지원    |
++--------+-----------+
+3 rows in set (0.00 sec)
+
+mysql>
+
+
+mysql> select addr from usertbl order by addr;
+
+출력된 결과에서 중복 제거 distinct
+
+mysql> select distinct addr from usertbl order by addr;
++--------+
+| addr   |
++--------+
+| 경기   |
+| 경남   |
+| 경북   |
+| 서울   |
+| 전남   |
++--------+
+5 rows in set (0.00 sec)
+
+mysql>
+
+
+ create table .... select 를 이용하여 다른 테이블의 정보를 복사한 새로운 테이블 만들기
+
+ CREATE TABLE 새로운테이블명 (select 복사할열 FROM 기존테이블)
+
+mysql> create table singertable (select name,height,addr from usertbl);
+Query OK, 10 rows affected (1.45 sec)
+Records: 10  Duplicates: 0  Warnings: 0
+
+mysql> select * from singertable limit 3;
++-----------+--------+--------+
+| name      | height | addr   |
++-----------+--------+--------+
+| 바비킴    |    176 | 서울   |
+| 은지원    |    174 | 경북   |
+| 조관우    |    172 | 경기   |
++-----------+--------+--------+
+3 rows in set (0.00 sec)
+
+mysql>
+
+group by (그룹으로 묶기)
+
+
+ Quiz  아래와 같이 출력되도록 하라. (구매건수가 가장 많은 top 3)
++--------+-------------+
+| userid | SUM(amount) |
++--------+-------------+
+| bbk    |          19 |
+| kbs    |           6 |
+| ssk    |           5 |
++--------+-------------+
+[예] mysql> select userid, SUM(amount) from buytbl group by userid order by SUM(amount) DESC limit 3;
+
+Quiz2. 아래와 같이 출력되도록 하라. (구매금액이 가장 많은 top3)
+
++-----------+-----------------+
+| 아이디    | 총구매금액      |
++-----------+-----------------+
+| bbk       |            1920 |
+| kbs       |            1210 |
+| jyp       |             200 |
++-----------+-----------------+
+3 rows in set (0.00 sec)
+
+ 참고로 '아이디' -> select userid as '아이디' 
+
+[예] 
+mysql> select userid, SUM(amount*price) from buytbl group by userid order by SUM(amount*price) DESC limit 3;
+
+ 집계함수
+ AVG()   :   평균
+ MIN()   : 최소값
+ MAX() :  최대값
+ COUNT() : 행의 개수세기
+ COUNT(DISTINCT) : 행의 개수세기(중복은 1만 인정)
+ 
+Quiz.  평균 구매 개수
+
+mysql> select AVG(amount) as '평균 구매 개수' from buytbl;
++----------------------+
+| 평균 구매 개수       |
++----------------------+
+|               2.9167 |
++----------------------+
+1 row in set (0.00 sec)
+
+mysql>
+
+Quiz. 각 사용자(userid) 별 평균 구매 개수 
+
+id,  평균구매개수
+
+mysql> select userid,  AVG(amount) as '평균 구매 개수' from buytbl group by userid;
++--------+----------------------+
+| userid | 평균 구매 개수       |
++--------+----------------------+
+| bbk    |               4.7500 |
+| ejw    |               1.3333 |
+| jyp    |               1.0000 |
+| kbs    |               2.0000 |
+| ssk    |               5.0000 |
++--------+----------------------+
+5 rows in set (0.00 sec)
+
+mysql>
+
+
+Quiz. usertbl 에서 키가 가장 큰 사람의 이름과 키, 가장 작은 사람의 이름과 키를 출력하세요
+(hint, 서브 쿼리를 이용해 보세요)
+
+-- 아래의 결과와 같이---
++-----------+--------+
+| name      | height |
++-----------+--------+
+| 성시경    |    186 |
+| 조용필    |    166 |
++-----------+--------+
+2 rows in set (0.00 sec)
+
+mysql> select name AS '이름' , height AS '키' from usertbl where height=(select max(height) from usertbl) or height=(select min(height) from usertbl) order by height DESC;
+
+
+
+
+
+
+
+
+
+
+
+
+
+

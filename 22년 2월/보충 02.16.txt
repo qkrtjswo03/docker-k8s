@@ -1,0 +1,58 @@
+2022.02.16 수요일 보충수업
+
+val1=10		-> int 
+val2="10"	-> str
+
+$val1=hello 
+$val1 = hello 
+
+bash 
+변수명 변수값
+
+val1 = hello 
+"val1" 을 명령으로 생각한다.
+
+리다이렉션
+> , >> , << 
+
+echo "hello" > a.txt	:  기존 내용과 상관없이 덮어 씌운다.
+echo "hello" >> a.txt	:  기존 내용은 유지되고 아래에 덧붙여진다.
+
+
+cat << a.txt(입력)
+
+파일에서 특정 내용을 골라서 보고 싶을때, 
+grep -e => 정규표현식을 쓸수 있다
+grep -v => 특정 단어가 들어가 있는 라인을 제거한다. 
+
+쉘에서의 기본 문법.
+조건문( if,  case)
+반복문 (for, while, select, until )
+==========================
+vimrc 설정.
+/] vi ~/.vimrc
+set number
+syntax on
+
+bashrc 설정
+cd ..
+vim /root/.bashrc
+==========================
+
+문자열 크기 비교 
+-z : 문자열의 크기가 없다면 참.
+-n : 문자열의 크기가 있다면 참.
+
+
+블로그 게시판
+웹 프로그래밍 언어(PHP,JSP,ASP) + DB(MariaDB,MySQL) + DB + 웹 서버(apache=httpd) 
+= APM 
+
+도커 설치 및 컨테이너 
+yum -y install yum-utils device-mapper-persistent-data lvm2
+yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo 
+yum -y install docker-ce
+systemctl start docker
+docker container run --name mysqlwp -e MYSQL_ROOT_PASSWORD=beomtaek -d mysql
+docker container run --name wordpress --link mysqlwp:mysql -p 8080:80 -d wordpress
+

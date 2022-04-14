@@ -1,0 +1,185 @@
+
+사설 저장소 구축 참고 : 
+https://nirsa.tistory.com/74
+
+도커 허브 : 
+public, 
+private 저장소 -> 그룹지정이 가능하여 그룹별로 접근 권한을 부여할 수 있다. 
+webhook(github 외 비슷) -> 이미지가 등록될 경우 저장소에 변경이 발생한 것이므로 이를 감지하고 해당 결과를 특정 웹주소로 전송해 준다. 
+
+
+저장소 -> compose -> docker swarm ->  docker stack (docker swarm + compose yml)
+
+사설 저장소 구축하기
+user1@docker01:~$ docker image pull registry
+user1@docker01:~$ docker container run -d -p 5000:5000 --restart=always --name repo registry
+user1@docker01:~$ docker image tag centos:7 localhost:5000/test:1.0
+user1@docker01:~$ docker image ls | grep localhost:5000
+localhost:5000/test   1.0       eeb6ee3f44bd   5 months ago   204MB
+user1@docker01:~$
+user1@docker01:~$ docker image push localhost:5000/test:1.0
+
+docker run -d -p 8080:8080 --name registry-web --link repo -e REGISTRY_URL=http://repo:5000/v2 -e REGISTRY_NAME=localhost:5000 hyper/docker-registry-web
+
+위와 같이 입력하고  윈도우에서 http://211.183.3.254:8080 으로 접속해 보세요!!!
+
+사설 저장소 이미지를 로컬 저장소로 pull 하기
+user1@docker01:~$ docker image rm localhost:5000/test:1.0   <-- 로컬에서 삭제
+user1@docker01:~$ docker image ls | grep localhost  <-- 로컬에 없는 것 확인
+user1@docker01:~$
+user1@docker01:~$ docker image pull localhost:5000/test:1.0 <-- 사설에서 pull
+user1@docker01:~$ docker image ls | grep localhost  <-- 로컬로 pull 된 것 확인
+localhost:5000/test         1.0       eeb6ee3f44bd   5 months ago   204MB
+user1@docker01:~$
+
+로컬에 설치된 사설 저장소로 이미지를 pull/push 하는 것에는 인증관련 문제가 발생하지 않는다. 단, 원격지(다른 서버)에서 로컬에 위치한 사설 저장소로 접속을 시도하거나. 내 서버에서 다른 곳에 위치한 사설 저장소로 접속을 시도한다면 이는 https 를 통한 접근이므로 인증서가 발급되어 있어야 접근할 수 있다. 하지만 현재 인증관련 내용(설정되어 있지 않으므로)이 없으므로 이미지를 pull , push 하는 것은 불가능하다.
+
+인증을 거치지 않고  pull, push 가 되도록 하고 싶다면 다음과 같이 진행한다.
+
+sudo systemctl stop docker
+user1@docker01:~$ sudo vi /etc/default/docker
+
+아래 내용 추가
+DOCKER_OPTS="--insecure-registry=저장소 주소:5000"
+
+
+실제 웹이 서비를 제공하는 환경은 3-tier 구조를 갖는다.
+
+                user ---> WEB------WAS------DB
+
+docker-compose 는 한 대의 서버내에서 필요한 환경을 docker-compose.yml  에 정의하고 이를 토대로 서비스를 배포하기 위한 인프라를 배포할 수 있다. 
+또한 해당 파일을 기반으로 인프라 환경을 한꺼번에 삭제할 수도 있으며 필요한 서비스의 scale 조정도 가능하다. 
+
+단, 한대의 서버에서 스케일 조정이 된다는 점이 단점이다. 
+
+도커 컴포즈는 디렉토리 내에서 모든 작업이 이루어 져야 한다. 
+  
+user1@docker01:~/docker/0304$ cat docker-compose.yml
+version: "3.3"
+
+services:
+  websrv:
+    image: mynginx:1.0
+    networks:
+      - privatenet
+    volumes:
+      - privatevol:/usr/share/nginx/html
+    ports:
+      - "8001-8003:80"
+    restart: always
+    environment:
+      ENVTEST: test123
+
+networks:
+  privatenet:
+
+volumes:
+  privatevol: {}
+user1@docker01:~/docker/0304$
+user1@docker01:~/docker/0304$ docker-compose up -d --scale websrv=3
+
+
+------ 오류 해결 --------
+docker-compose down
+vi Dockerfile 
+가장 아래줄 삭제 (CMD nginx -g ...)
+
+docker image rm -f mynginx:1.0
+docker build -t mynginx:1.0 .
+
+docker-compose up -d --scale websrv=3
+docker-compose ps
+
+
+centos7(또는 ubuntu 18.04) 컨테이너 + db 컨테이너(mysql; mariadb-> ROOT_PASSW)  
+PHP는 7.X 이상을 사용해야 합니다!!!
+git clone https://github.com/xpressengine/xe-core
+
+--------------------------------------------------------------
+user1@docker01:~/docker/bbs$ ls
+bbs.tar  docker-compose.yml  Dockerfile
+user1@docker01:~/docker/bbs$
+user1@docker01:~/docker/bbs$ cat Dockerfile
+FROM centos:7
+RUN yum clean all
+RUN yum -y update
+RUN yum -y install httpd
+RUN yum -y install http://rpms.remirepo.net/enterprise/remi-release-7.rpm
+RUN yum -y install epel-release yum-utils
+RUN yum-config-manager --disable remi-php54
+RUN yum-config-manager --enable remi-php74
+RUN yum -y install php php-mysqlnd php-fpm php-cli php-gd php-mysql
+RUN yum -y install php-mysql php-gd php-ldap php-odbc php-pear php-xml php-xmlrpc php-mbstring php-snmp php-soap curl curl-devel
+ADD bbs.tar /var/www/html
+RUN chmod 755 /var/www/html
+RUN mkdir /var/www/html/bbs/files
+WORKDIR /var/www/html/bbs
+RUN chgrp apache files
+RUN chmod 777 -R /var/www/html/bbs
+EXPOSE 80
+
+CMD httpd -D FOREGROUND
+user1@docker01:~/docker/bbs$
+
+user1@docker01:~/docker/bbs$ cat docker-compose.yml
+version: "3.3"
+services:
+  db:
+    image: mysql:5.7
+    volumes:
+      - db_data:/var/lib/mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: test123
+      MYSQL_DATABASE: bbs
+      MYSQL_USER: bbs
+      MYSQL_PASSWORD: bbs
+  bbs:
+    image: bbs:1.0  # <--docker  build  -t  bbs:1.0 .
+    volumes:
+      - bbs_data:/var/www/html/bbs
+    ports:
+      - "8001:80"
+    restart: always
+    depends_on:
+      - db
+volumes:
+  db_data: {}
+  bbs_data: {}
+user1@docker01:~/docker/bbs$ docker  build  -t  bbs:1.0 .
+user1@docker01:~/docker/bbs$ docker-compose  up  -d
+user1@docker01:~/docker/bbs$ docker-compose  ps
+
+  Name             Command          State           Ports
+-----------------------------------------------------------------
+bbs_bbs_1   /bin/sh -c httpd -D     Up      0.0.0.0:8001->80/tcp,
+            FOREGROUND                      :::8001->80/tcp
+bbs_db_1    docker-entrypoint.sh    Up      3306/tcp, 33060/tcp
+            mysqld
+user1@docker01:~/docker/bbs$
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

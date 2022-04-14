@@ -1,0 +1,302 @@
+오늘 부터 도커 시작하려는데.. 
+KVM 은 미리 정리해 둘 것들이 있습니다.
+
+강의장 들어오시면 KVM1/KVM2/STORAGE 실행 시켜두세요! DB 포함해서 4개 VM 은 아직 삭제하시면 안됩니다!!!
+
+1. https://ubuntu.com/download/desktop/thank-you?version=20.04.4&architecture=amd64
+2. https://drive.google.com/file/d/1gryQV0atBF48YlReJDcwtu1vXYtul5jp/view?usp=sharing
+
+가상화의  장점
+
+1. 비용절감  -> 물리적인  서버  3대를이용하여  운영하던  애플리케이션을  1대의  서버에서  논리적으로  3대의  서버를  생성하고  여기에  애플리케이션을  배포할  수  있게  됨으로써  비용을  절감할  수  있게  되었다.
+-> 공간절약  -> 관리인력((인건비))절감 -> 전력사용량  절감
+
+2. 무중단  서비스  가능
+-> Live Migration
+
+3.지역간  이동  가능
+
+가용성  증대!!!! (가상화가 클라우드에 도입될 경우 가용성은 99.99999999%)
+
+
+
+VMware  Workstation : 개인용
+- type  2
+- 하이퍼바이저가  Host  OS  상에 설치된다.
+
+VMware  ESXi : 기업용
+- type  1
+- 하이퍼바이저가 커널상에 설치된다. 
+
+TYPE  1 에 해당하는 대표적인 하이퍼바이저
+- ESXi(OS) -> VMKernel(Hypervisor)
+- Linux(OS)-> KVM(Hypervisor)
+
+
+가상머신에서 동작하는 애플리케이션은 두 개의 커널을 거쳐야 최종 물리 자원을 사용할 수 있으므로 성능저하는 필수요소이다. 
+
+물리자원위에 직접 배치된 애플리케이션에 비해 VM  에서 동작하는 애플리케이션의 성능은 CPU, RAM, DISK  I/O, Network  I/O  가 평균적으로 30% 정도 성능저하가 발생한다. 
+
+성능저하를 감안하더라도 가상화를 통해 얻는 잇점이 많으로 가상화를 도입할 수 밖에 없다. 
+
+사용자 입장에서는 애플리케이션이 물리서버위에 직접 배치되는 것과 가상머신에서 배치되는 것을 구분할 수 있는가? -> 사용자 입장에서는 관심없음
+사용자 입장에서는 애플리케이션의 빠른 성능만 관심대상이다. 
+
+
+
+컨테이너 기반의 가상화 : 컨테이너 내에 애플리케이션을 배치하고 컨테이너 형태 자체를 배포하여 각 애플리케이션에 대한 격리도를 높였다. 기존 가상화에 비해 보다 더 가벼운 격리도를 보일 수 있다. 
+
+애플리케이션 입장에서는 가상머신의 커널-> 하이퍼바이저->호스트의 커널을 거치는 것이 아니라 직접적으로 호스트의 커널을 사용하므로 기존 일반 서버에서 운영하는 방식과 큰 차이가 없다
+
+애플리케이션은 커널을 직접 접속할 수 있고 커널과 통신이 가능해야 하므로 커널은 오픈소스기반의 운영체제인 Linux  여야 한다. 또한 애플리케이션들도 리눅스 상에서 동작하는 애플리케이션 이어야 한다. 
+
+
+
+시작  
+리눅스 컨테이너                                                        ->컨테이너이동 -> Docker
+- 네임스페이스(서로간 간섭주지 않는다)
+- cgroup  (용량제한 가능)
+
+
+ 도커 컨테이너  -> 컨테이너 오케스트레이션(쿠버네티스)
+
+쿠버네티스(구글 주도로 작성됨)는 애플리케이션 배포를 위해 runtime(대표적인 예 , 도커)  이 필요하다. 
+사실상 컨테이너 오케스트레이션의 표준이다. 
+
+도커는 자체적으로 오케스트레이션 툴이 있다. -> docker  swarm  
+
+
+   bare metal    vs    virtualization(using hypervisor)   vs   container
+          1                  :                         0.7                                           :   0.97
+
+ * 컨테이너는  RAM 에서는  1:1.01 의  성능  개선  효과도  볼  수  있다.
+
+ 예를  들어  동일한  애플리케이션을  다수  운영하는  회사의  경우  container
+ 고객에게  별도의  운영체제와  사용환경, 볼륨을  제공하고  싶다면  hypervisor
+
+
+user1 을  이용하여   docker 실습  진행
+
+sudo 를  이용하여  루트의  권한을  일시적으로  얻어와야  한다!!!!
+
+
+sudo  apt-get  -y  install  ssh
+
+
+[도커 설치하기]
+sudo apt update -y
+sudo apt install apt-transport-https ca-certificates curl software-properties-common
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable"
+sudo apt install docker-ce -y
+sudo systemctl status docker
+
+sudo systemctl start docker
+sudo systemctl enable docker
+sudo systemctl status docker
+
+docker -v 
+20.10  
+
+
+
+root 는 최고 관리자 이므로 docker  에 대한 모든 권한을 갖고 있다. 하지만 user1 은 그렇지 않다.
+
+user1 은 기존 그룹을 유지하면서 docker 그룹에 포함되도록 해 본다. 
+sudo usermod -aG docker user1
+su user1
+groups
+
+user1@docker01:~$ groups
+user1 adm cdrom sudo dip plugdev lpadmin lxd sambashare docker
+
+
+
+
+
+
+
+컨테이너의 배포는 base 이미지에 필요한 내용을 추가하여 커스텀 이미지를 제작하고 
+해당 이미지를 컨테이너 형태로 배포하게된다.
+
+이미지의 보관은 로컬저장소, 원격저장소로 구분하며 원격저장소 public 저장소, private 저장소로 구분할 수 있다.
+
+public 저장소는 접근에 제한이 없으므로 이미지의 이름만 알고 있다면 다운로드하여 사용 가능하다.
+private 저장소는 반드시 인증을 통해 접근할 수 있다. 따라서 회사내에 필요한 프로젝트가 진행될 경우에는 private 저장소를 인터넷이나 회사 내부의 서버에 구축한 뒤 이를 활용하여 프로젝트가 진행된다. 
+
+대표적인 public 저장소 -> docker hub 
+대표적인 private 저장소 -> docker hub, aws, gcp, azure, 로컬환경(회사내)에 설치형으로 설치한 뒤 사용할 수 있는 "private registry" 도 있다.  인증을 요한다!!! 
+
+
+컨테이너 배포의 일반적인 형태는 다음과 같다.
+
+원활한 실습을 위해서는 docker-hub  에 계정을 만들어 두어야 한다.
+계정을 생성하면 docker-hub 에 자신만의 저장소(Public,Private) 를 만들 수 있다.
+참고로 Private 저장소는 1개 만들 수 있다. 
+
+
+https://hub.docker.com/
+
+docker search 했을 때 결과중 / 가 없는 이미지는 도커에서 제작하여 올린 base 이미지 이며 / 가 있는경우는   계정ID/이미지이름
+
+
+
+user1@docker01:~$ docker pull centos:7
+도커 허브에 공개된 이미중에서 centos 버전은 7  인 기본이미지를 로컬 저장소로 복사한다(pull 한다)
+
+user1@docker01:~$ docker pull centos
+: 다음의 번호는 tag 라고 하며 일반적으로 버전으로 사용된다. 만약 tag 를 표기하지 않으면 도커 허브에 있는 centos 중에서 최신 이미지를 pull  하게 된다. 
+
+
+
+
+
+user1@docker01:~$ docker container run -it --name centos02 --hostname centos2 centos:7 /bin/bash
+
+ "--name" 은 도커가 관리하는 컨테이너의 구분자 이름. 관리를 위한 목적으로 사용되므로 절대 겹쳐서는 안된다.
+
+ "--hostname" 은 생성된 컨테이너 내에서 사용하는 호스트 이름
+
+[root@centos2 /]# user1@docker01:~$
+user1@docker01:~$
+user1@docker01:~$ docker container ls <-- 동작중인 컨테이너 확인 가능
+CONTAINER ID   IMAGE      COMMAND       CREATED          STATUS          PORTS     NAMES
+11aca50f0b2f   centos:7   "/bin/bash"   45 seconds ago   Up 44 seconds             centos02
+c02a208a2cc7   centos:7   "/bin/bash"   6 minutes ago    Up 6 minutes              centos01
+user1@docker01:~$
+user1@docker01:~$ docker container rm -f 11aca50f0b2f
+11aca50f0b2f
+user1@docker01:~$ docker container rm -f c02a208a2cc7
+c02a208a2cc7
+user1@docker01:~$
+
+user1@docker01:~$ docker container ls -a
+
+현재 동작중인 컨테이너들의 목록
+
+user1@docker01:~$ docker container ls -aq   <-- 동작중인 컨테이너들의  ID 만 보여줌
+
+user1@docker01:~$ docker container rm -f $(docker container ls -aq)
+c7e435e27805
+a418be090004
+user1@docker01:~$
+
+동작중인 컨테이너들의 이름을 docker container rm -f 다음에 넣어, 모든 컨테이너를 삭제할 수 있다. 
+
+
+
+
+docker image ls   <--- 로컬 저장소에 있는 이미지 리스트
+docker image rm centos:7 
+docker image rm centos   <-- 최신버전(latest)의 centos 를 삭제한다.
+
+해당 이미지를 이용하여 동작중인 컨테이너가 있을 경우에는 이미지가 삭제되지 않는다. 이 경우 강제로 이미지를 삭제하고 싶다면 ?  -f
+
+
+1. docker image pull 을 이용하여 허브에 있는 base 이미지를 로컬 저장소로 pull 한다.
+2. docker container create 를 하면 컨테이너가 생성만 된다. -> 실행하고 싶다면 start 가 필요하다. 
+     docker conainter run 을 하면 생성한 뒤, 실행까지 시킨다. 
+    
+3. 동작중인 컨테이너는 restart 를 통해 재부팅, pause 를 통해 일시중지/unpause 를 통해 일시중지해제 가 가능하다.
+
+4. docker container stop 을 통해 중지시킬 수 있다. 
+5. 삭제는 docker container rm 을 이용할 수 있으며 동작중인 상태에서의 삭제는 -f 옵션을 이용하거나 stop 한 뒤에 삭제해야 한다. 
+
+만약 docker containe run 을 하면, 도커는 컨테이너 생성을 위해 로컬 저장소에서 해당 이미지의 이름을 갖는 이미지를 찾는다. 만약 없다면?? 
+
+ docker container run -it --name centos01 --hostname  centos 1 centos:7 /bin/bash
+"centos:7" 는 이미지 이름을 뜻한다. 만약 로컬 저장소에 해당 이미지가 없다면 도커는 자동으로 도커 허브에 연결하여 해당 이미지를 로컬에 pull 한 뒤, 생성-> 실행까지 시켜준다. 
+
+-i 는 사용자로부터 입력을 받아 처리할 수 있다. 
+-t : tty 터미널을 의미하고 마치 ssh 로 연결하여 사용하는 것처럼 세션을 제공한다. 
+/bin/bash : -i 는 사용자로부터 입력을 받아 처리한다는 것인데 어떠한 방법을 이용할 것인가를 의미하여 이는 컨테이너의 bash 로 연결하여 입력하겠다는 뜻
+--name : 도커가 컨테이너를 관리하기 위한 이름
+--hostname : 생성된 컨테이너 내에서 사용하는 hostname 
+
+위의 방법을 이용하면 마치 ssh 를 이용하여 컨테이너에 연결하는 효과를 볼 수 있다. 만약 컨테이너에서 벗어나고 싶다면? 
+1) ctrl + d 또는 exit -> 컨테이너를 중지시키고 빠져나온다.
+2) ctrl + p , ctrl + q -> 컨테이너가 백그라운드에서 여전히 동작중이다. 
+
+
+user1@docker01:~$ docker container ls
+CONTAINER ID   IMAGE     COMMAND   CREATED   STATUS    PORTS     NAMES
+[동작중인 컨테이너 없음]
+
+user1@docker01:~$ docker container ls -a   [동작중/중지중인 컨테이너 확인]
+CONTAINER ID   IMAGE      COMMAND       CREATED              STATUS                        PORTS     NAMES
+501cec8465c8   centos:7   "/bin/bash"   About a minute ago   Exited (130) 49 seconds ago             unruffled_ganguly
+user1@docker01:~$ docker container start 501cec8465c8 [중지중인 컨테이너 실행]
+501cec8465c8
+user1@docker01:~$ docker container ls
+CONTAINER ID   IMAGE      COMMAND       CREATED              STATUS         PORTS     NAMES
+501cec8465c8   centos:7   "/bin/bash"   About a minute ago   Up 3 seconds             unruffled_ganguly
+user1@docker01:~$
+user1@docker01:~$ docker container attach 501cec8465c8
+[root@501cec8465c8 /]#
+
+
+
+docker container run -d -p 8001:80 httpd 
+
+-d : 해당 컨테이를 외부와 직접 연결하지 않고 백그라운드에서 서비스를 제공한다. 
+-p 8001:80  : 포트포워딩을 의미하여 호스트(ubuntu)의 8001 번 포트로 접속하면 컨테이너의 80 번 포트로 접속되도록 포워딩 해 준다. 
+ 
+--restart=on-failure:3   -> 컨테이너를 처음 시작할 때 문제가 발생하여 정상 실행되지 않는다면 3번까지 재부팅하며 실행을 시도하고 그 이후에도 정상실행되지 않는다면 fail (stop상태에 머물러 있게 된다)
+
+
+
+user1@docker01:~$ docker container run -d -p 8888:80  \
+-v /home/user1/html:/usr/share/nginx/html nginx
+
+-d : 컨테이너 백그라운드에서 실행
+-p 8888:80  -> 호스트의 8888 로 접근하면 컨테이너의 80 번포트로 연결(포워딩)
+-v (--volume) -> 마운트(NFS) 와 volume(iSCSI) 을 사용할 수 있다. 현재 옵션에서는 
+호스트(ubuntu)의 /home/user1/html 과  컨테이너의 /usr/share/nginx/html 이 마운트 되어 있다는 의미이다.
+결국, nginx 의 기본 홈 디렉토리는 /usr/share/nginx/html 이라는 뜻   
+
+-v 는 볼륨을 의미한다. 
+1) mount, nfs (file storage)
+마운트는 우분투의 특정 디렉토리와 컨테이너의 특정 디렉토리를 연결하는 방법
+
+2) disk 를 제공 (block storage)
+스토리지에서 볼륨을 생성하고 해당 볼륨을 컨테이너에 디스크 형태로 부착하는 방법
+
+
+이번에는 볼륨을 만들고 해당 볼륨을 컨테이너에 연결하여 사용하는 방법
+
+컨테이너를 통한 워드프레스 배포
+docker container run -d --name wordpressdb -e MYSQL_ROOT_PASSWORD=test123 -e MYSQL_DATABASE=wordpress mysql:5.7
+
+docker container run -d --name wordpress --link wordpressdb:mysql -p 8881:80 wordpress
+
+
+지금까지의 실습은 모두 도커허브에 있는 이미지를 pull 하여 배포하는 데 지나지 않는다.
+우리는 우리회사에 맞는 이미지를 제작하여 이를 토대로 컨테이너를 배포할 수 있어야 한다.
+
+이를 위한 몇가지 방법을 살펴보자.
+
+1. docker container commit 
+
+
+
+Quiz. 다음의 조건에 부합하는 mariadb 컨테이너를 제공하세요.
+외부(ubuntu)에서 다음과 같이 접속할 수 있어야 한다.
+
+mysql testdb -u root -ptest1234 -h 211.183.3.200 -P 33060
+
+
+테스트를 위해서 ubuntu 에서 sudo apt-get install -y mariadb-client 를 
+진행한 뒤 위의 명령어를 실행하면 동작중인 컨테이너로 바로 접속 할 수 있어야 한다.
+
+ubuntu 에서 자신의 33060 포트로 mysql(mariadb) 접속하 되, 사용자는 root 이고 패스워드는 test1234 이다. 처음 접근하면 컨테이너 생성시 자동으로 만들어진 database -> testdb로 들어갈 수 있어야 한다. 
+
+
+ docker container run -d -p 33060:3306 -e MARIADB_DATABASE=testdb -e MARIADB_ROOT_PASSWORD=test1234 mariadb:10.4
+
+  수요일 : 
+  도커 동작원리 -> 컨테이너 라이프 사이클 관리 -> 컨테이너 생성 실습 
+  -> 간단한 이미지 만들기 -> 만들어진 이미지를 docker-hub 에 올리기 
+
+
+
+

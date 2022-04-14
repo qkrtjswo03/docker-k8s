@@ -1,0 +1,133 @@
+[3/14] DB  관련....
+
+mysql-server(oracle)
+- enterprise (기업)
+- community (개인)
+
+openstack -> mariadb
+
+1. 윈도우(내 컴퓨터에 직접 설치)
+2. DB(211.183.3.200) -> Mariadb
+     mysql -u root -p
+ password : 그냥엔터
+
+     -> MySQL 8.X  : root 패스워드 지정되어 있음. -> 변경 후 사용하기
+
+ workbench-> DB 관리
+
+ 웹 서비스를 위한 3 tier 
+
+ 리눅스에서 MySQL 8.0.28 
+
+ systemctl stop mariadb
+ yum remove mariadb-server
+ yum remove mariadb
+ systemctl disable mariadb
+
+
+ 설치된 mysql 버전 확인
+  mysql --version
+
+데이터베이스 삭제 / 생성
+
+ MYSQL 8 버전 들어오면서 
+ -> 테이블 작성시 PK 또는 unique 설정이 되어있지 않은테이블은 쓰기 안됨!!
+PK : Primary Key 이며 테이블 내에서 유일성을 보장받을 수 있는 값을 의미한다. 또한 이를 통해 특정 데이터 정보를 추출해 낼 수 있어야 한다. 
+
+무결성검사(hashing)
+ - 데이터의  위변조  여부를  확인하기  위한  목적으로  활용
+
+자료  관리  
+각각의  데이터를  hash 를  이용하여  고정  길이의  키로  저장하고  나중에  데이터를  찾을  때  이  고정길이  키를  이용하여  찾는다.. 
+만약  고정길이의  키가  짧고  저장할  데이터가  많다면?? 겹치는  코드가  나올  수  있다..
+서로다른 데이터가 동일한  해시  값을  갖게되면  데이터의  무결성을  보장받을  수  없다.. 
+
+
+우리  고객중에  포인트  1000 점  이상인  사람들에게  무료  쿠폰을  제공하는  업무를  아르바이트  생에게  맡겼다!!!!
+
+ usertable -> 알바생((user10) SELECT
+ id, name, 주민등록번호, 전화번호,, 주소.... 포인트점수
+
+ view -> 실제하는  테이블의  특정정보를  select 로  연결한  '가상의  테이블'
+                   보안적인  측면에서  유용하게  사용할  수  있다.. 
+
+ QUIZ. 
+  - 사용자  alba 를  생성한다, TEst!234  (CREATE)
+  - alba 는  원격지에서  접속  가능하다..   (GRANT -> shopdb.v_member 테이블에서  select 권한만  갖도로한다))
+
+ -> mysql 로  접속하여  select 해  본다. 데이터  입력  가능여부  확인해  본다.. 
+
+mysql> CREATE VIEW v_member
+    -> AS
+    -> SELECT membername,memberaddress FROM member;
+
+C:\Program Files\MySQL\MySQL Workbench 8.0>
+
+mysql> create user 'alba'@'%' identified by 'TEst!234';
+mysql> grant select on shopdb.v_member to alba@'%';
+mysql> flush privileges;
+
+접속  확인테스트는  PATH 변수  적용이  안되어  있으므로  윈도우  10에서
+cd C:\Program Files\MySQL\MySQL Workbench 8.0
+mysql -u alba -p -h 192.168.2.200
+
+
+
+스토어드  프로지서 -> 일종의  프로그래밍  기능
+
+여러  SQL 문을  묶어서  실행할  수  있도록  해 주는  기능..
+마치  함수와  비슷하다.. 
+
+필요할  때마다  호출하여  사용할  수  있다.. 
+------------------------------ 트리거  -------------
+use shopdb;
+drop table  if  exists  deletetbl ;         -- 삭제된  정보  담기위한  테이블
+CREATE TABLE deletetbl (
+	memberid CHAR(8),
+	membername  CHAR(5),
+    memberaddress  CHAR(20),
+    deleteddate date);     <-- 삭제될때  날짜를  별도로  저장하기  위한  열  추가
+    
+DELIMITER //
+CREATE TRIGGER trg_deletedmember  <- member테이블  각  행에서  delete가  발생하면....
+	AFTER DELETE
+	ON member
+	FOR EACH ROW
+BEGIN
+	INSERT INTO deletetbl
+		VALUES (OLD.memberid, OLD.membername, OLD.memberaddress, CURDATE());
+<-- 삭제된  정보를  deletetbl 에  담고  마지막은  오늘날짜를  함수를  이용하여  불러와  저장시킨다..
+END  //
+
+DELIMITER ;
+
+[확인]]
+
+mysql> delete from member where memberid = 'choi' ;
+<--기존  데이터  1개  삭제
+
+
+mysql> select * from deletetbl ;
++----------+------------+-------------------+-------------+
+| memberid | membername | memberaddress     | deleteddate |
++----------+------------+-------------------+-------------+
+| choi     | 최영수     | 서울  강동구      | 2022-03-14  |
++----------+------------+-------------------+-------------+
+1 row in set (0.00 sec)
+
+mysql>   <-- 트리거가  정상적으로  동작한다면  위와  같이  삭제된  정보를  확인할  수  있다.. 
+
+뷰, 트리거  다시한번  실습해  보겠습니다!!!!
+
+
+
+
+
+
+
+
+
+
+
+
+
